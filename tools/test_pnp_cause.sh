@@ -85,6 +85,15 @@ printf '{"id": "MONDO:10526"}' > "$t/a.json"; run --cause raredx answer "$U1" "$
 printf '{"id": "HGNC:6342"}' > "$t/a.json"; run --cause raredx answer "$U1" "$t/a.json"; [ "$rc" = 1 ] && grep -q 'a disease takes an id of MONDO, ORPHA' "$t/err" || fail "a gene id for a disease mention was not refused"
 printf '{"id": "MONDO:0010526", "why": "x"}' > "$t/a.json"; run --cause raredx answer "$U1" "$t/a.json"; [ "$rc" = 1 ] && grep -q 'is not a field' "$t/err" || fail "an extra field was not refused"
 printf '{"id": NaN}' > "$t/a.json"; run --cause raredx answer "$U1" "$t/a.json"; [ "$rc" = 1 ] && grep -q 'not strict JSON' "$t/err" || fail "NaN was not refused"
+# Only the ontologies we pin take a LINK answer, the same lists as the desk's RX_EXPECT (26 Nov 20:15Z: an HGNC answer
+# to a target could not be checked and stopped the verify loop); the help names only those.
+python3 -I - "$script" <<'PY' || fail "the LINK ontology lists are not the pinned ones"
+import re, sys, json
+src = open(sys.argv[1], encoding="utf-8").read()
+exp = json.loads(re.search(r'^EXPECT = (\{.*\})$', src, re.M).group(1))
+assert exp["target"] == ["UNIPROT"] and exp["drug"] == ["CHEMBL", "UNII", "RXCUI"] and exp["disease"] == ["MONDO", "ORPHA"], exp
+assert "HGNC, UNIPROT or ENSEMBL" not in src and "CHEMBL, DRUGCENTRAL, UNII or RXCUI" not in src
+PY
 [ ! -s "$t/desk/log" ] || fail "a refused answer reached the desk: $(cat "$t/desk/log")"
 printf '{"id": "MONDO:0010526"}\n' > "$t/a.json"; run --cause raredx answer "$U1" "$t/a.json"; [ "$rc" = 0 ] && grep -q '^answered' "$t/out" || fail "a good answer"
 grep -q '^POST /raredx/answer?lease=lease-1$' "$t/desk/log" || fail "the answer went to the wrong door: $(cat "$t/desk/log")"
